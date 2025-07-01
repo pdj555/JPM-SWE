@@ -16,40 +16,55 @@ jobs:
     runs-on: ubuntu-latest
     
     services:
-      kafka:
-        image: confluentinc/cp-kafka:7.6
+      zookeeper:
+        image: confluentinc/cp-zookeeper:7.4.0
         env:
+          ZOOKEEPER_CLIENT_PORT: 2181
+          ZOOKEEPER_TICK_TIME: 2000
+        ports:
+          - 2181:2181
+        options: >-
+          --health-cmd "echo stat | nc localhost 2181"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      kafka:
+        image: confluentinc/cp-kafka:7.4.0
+        env:
+          KAFKA_BROKER_ID: 1
           KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
           KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
           KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
           KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+          KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
         ports:
           - 9092:9092
-          
-      zookeeper:
-        image: confluentinc/cp-zookeeper:7.6
-        env:
-          ZOOKEEPER_CLIENT_PORT: 2181
-        ports:
-          - 2181:2181
+        options: >-
+          --health-cmd "kafka-broker-api-versions --bootstrap-server localhost:9092"
+          --health-interval 30s
+          --health-timeout 10s
+          --health-retries 5
           
       cassandra:
-        image: cassandra:5
+        image: cassandra:4.1
         env:
           CASSANDRA_CLUSTER_NAME: transaction-platform-test
+          CASSANDRA_DC: datacenter1
+          CASSANDRA_RACK: rack1
         ports:
           - 9042:9042
         options: >-
           --health-cmd "cqlsh -e 'describe cluster'"
           --health-interval 30s
           --health-timeout 10s
-          --health-retries 5
+          --health-retries 10
 
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
       with:
-        fetch-depth: 0  # For SonarCloud analysis
+        fetch-depth: 0
 
     - name: Set up JDK ${{ env.JAVA_VERSION }}
       uses: actions/setup-java@v4
@@ -66,9 +81,11 @@ jobs:
 
     - name: Wait for services to be ready
       run: |
-        timeout 300 bash -c 'until nc -z localhost 9042; do sleep 5; done'
-        timeout 300 bash -c 'until nc -z localhost 9092; do sleep 5; done'
-        sleep 30  # Additional wait for full initialization
+        echo "Waiting for services to be ready..."
+        timeout 180 bash -c 'until nc -z localhost 2181; do echo "Waiting for Zookeeper..."; sleep 5; done'
+        timeout 180 bash -c 'until nc -z localhost 9092; do echo "Waiting for Kafka..."; sleep 5; done'
+        timeout 300 bash -c 'until nc -z localhost 9042; do echo "Waiting for Cassandra..."; sleep 10; done'
+        echo "All services are ready!"
 
     - name: Run Maven verify
       run: ./mvnw -B verify -Dspring.profiles.active=test
@@ -83,7 +100,6 @@ jobs:
         name: Maven Tests
         path: 'ingest-service/target/surefire-reports/*.xml'
         reporter: java-junit
-        working-directory: '.'
 
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v4
@@ -92,6 +108,7 @@ jobs:
         file: ./ingest-service/target/site/jacoco/jacoco.xml
         flags: unittests
         name: codecov-umbrella
+        fail_ci_if_error: false
 
   security-scan:
     name: Security Scan
@@ -106,6 +123,13 @@ jobs:
         java-version: ${{ env.JAVA_VERSION }}
         distribution: ${{ env.JAVA_DISTRIBUTION }}
 
+    - name: Cache Maven dependencies
+      uses: actions/cache@v4
+      with:
+        path: ~/.m2
+        key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
+        restore-keys: ${{ runner.os }}-m2
+
     - name: Run Snyk to check for vulnerabilities
       uses: snyk/actions/maven@master
       continue-on-error: true
@@ -117,7 +141,8 @@ jobs:
     - name: Run OWASP Dependency Check (backup security scan)
       run: |
         echo "Running OWASP Dependency Check for additional security scanning..."
-        ./mvnw org.owasp:dependency-check-maven:check -Dformat=ALL
+        cd ingest-service
+        ../mvnw org.owasp:dependency-check-maven:check -Dformat=ALL
       continue-on-error: true
 
     - name: Upload OWASP report
@@ -125,7 +150,9 @@ jobs:
       if: always()
       with:
         name: owasp-dependency-check-report
-        path: target/dependency-check-report.*
+        path: |
+          ingest-service/target/dependency-check-report.*
+          target/dependency-check-report.*
 
   docker-build:
     name: Docker Build & Push

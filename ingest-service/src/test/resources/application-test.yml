@@ -1,0 +1,40 @@
+spring:
+  main:
+    banner-mode: off
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.cassandra.CassandraAutoConfiguration
+      - org.springframework.boot.autoconfigure.data.cassandra.CassandraDataAutoConfiguration
+      - org.springframework.kafka.boot.autoconfigure.KafkaAutoConfiguration
+  
+  cassandra:
+    contact-points: localhost
+    port: 9042
+    local-datacenter: datacenter1
+    keyspace-name: transaction_platform_test
+    schema-action: create_if_not_exists
+  
+  kafka:
+    bootstrap-servers: localhost:9092
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+    consumer:
+      group-id: transaction-platform-test
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+
+logging:
+  level:
+    com.chase.transactionplatform: DEBUG
+    org.springframework: WARN
+    org.apache.kafka: WARN
+
+transaction-platform:
+  retry:
+    max-attempts: 3
+    delay: 1000
+  kafka:
+    topic: transaction-events-test
+  cassandra:
+    timeout: 5000 

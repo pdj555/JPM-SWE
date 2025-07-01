@@ -1,5 +1,6 @@
 package com.chase.transactionplatform;
 
+import com.chase.transactionplatform.config.TestConfig;
 import com.chase.transactionplatform.controller.TransactionController;
 import com.chase.transactionplatform.model.Transaction;
 import com.chase.transactionplatform.model.TransactionRequest;
@@ -11,7 +12,9 @@ import org.junit.jupiter.api.Nested;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.math.BigDecimal;
@@ -44,6 +47,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  */
 @WebMvcTest(TransactionController.class)
 @DisplayName("Transaction Controller Tests")
+@Import(TestConfig.class)
+@ActiveProfiles("test")
 public class TransactionControllerTest {
 
     @Autowired
