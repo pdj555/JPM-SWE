@@ -134,7 +134,7 @@ jobs:
       uses: snyk/actions/maven@master
       continue-on-error: true
       env:
-        SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        SNYK_TOKEN: ${{ secrets.SNYK_TOKEN || '' }}
       with:
         args: --severity-threshold=high
 

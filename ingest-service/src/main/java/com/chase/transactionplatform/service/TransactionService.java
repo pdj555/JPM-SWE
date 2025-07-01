@@ -13,7 +13,6 @@ import io.micrometer.core.instrument.Timer;
 import io.micrometer.core.instrument.Counter;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.lang.NonNull;
-import org.springframework.lang.Nullable;
 
 import java.time.Instant;
 import java.util.Optional;
@@ -61,6 +60,7 @@ public class TransactionService {
     private final Counter kafkaSendSuccess;
     private final Counter kafkaSendErrors;
     private final Timer ingestTimer;
+    private final Timer lookupTimer;
     
     @Value("${aurora.kafka.topic:txn.v1}")
     private String kafkaTopic;
@@ -98,6 +98,10 @@ public class TransactionService {
             
         this.ingestTimer = Timer.builder("aurora.transaction.ingest.duration")
             .description("Time taken to ingest a transaction")
+            .register(meterRegistry);
+            
+        this.lookupTimer = Timer.builder("aurora.transaction.lookup.duration")
+            .description("Time taken to lookup a transaction")
             .register(meterRegistry);
     }
 
@@ -162,19 +166,13 @@ public class TransactionService {
      */
     @NonNull
     public Optional<Transaction> findById(@NonNull UUID txnId) {
-        if (txnId == null) {
-            throw new IllegalArgumentException("Transaction ID cannot be null");
-        }
-        
         Timer.Sample sample = Timer.start(meterRegistry);
         try {
             Optional<Transaction> result = repository.findById(txnId);
             log.debug("Transaction lookup [{}]: {}", txnId, result.isPresent() ? "found" : "not found");
             return result;
         } finally {
-            sample.stop(Timer.builder("aurora.transaction.lookup.duration")
-                .description("Time taken to lookup a transaction")
-                .register(meterRegistry));
+            sample.stop(lookupTimer);
         }
     }
 
