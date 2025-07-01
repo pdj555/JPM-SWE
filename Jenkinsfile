@@ -6,7 +6,7 @@ pipeline {
     MAVEN_HOME = tool 'Maven-3.9'
     PATH = "${JAVA_HOME}/bin:${MAVEN_HOME}/bin:${PATH}"
     DOCKER_REGISTRY = 'your-registry.company.com'
-    IMAGE_NAME = 'aurora/ingest'
+    IMAGE_NAME = 'transaction-platform/ingest'
   }
   
   tools {
@@ -29,7 +29,7 @@ pipeline {
         stage('SonarQube Analysis') {
           steps {
             withSonarQubeEnv('SonarQube') {
-              sh './mvnw sonar:sonar -Dsonar.projectKey=aurora'
+              sh './mvnw sonar:sonar -Dsonar.projectKey=transaction-platform'
             }
           }
         }
@@ -94,6 +94,7 @@ pipeline {
         anyOf {
           branch 'main'
           branch 'develop'
+          branch 'transaction-platform'
         }
       }
       steps {
@@ -111,8 +112,8 @@ pipeline {
       when { branch 'develop' }
       steps {
         sh """
-          helm upgrade --install aurora-dev ./chart \\
-            --namespace aurora-dev \\
+          helm upgrade --install transaction-platform-dev ./chart \\
+            --namespace transaction-platform-dev \\
             --set image.tag=${BUILD_VERSION} \\
             --set environment=dev \\
             -f chart/values-dev.yaml
@@ -121,11 +122,16 @@ pipeline {
     }
     
     stage('Deploy to Staging') {
-      when { branch 'main' }
+      when { 
+        anyOf {
+          branch 'main'
+          branch 'transaction-platform'
+        }
+      }
       steps {
         sh """
-          helm upgrade --install aurora-staging ./chart \\
-            --namespace aurora-staging \\
+          helm upgrade --install transaction-platform-staging ./chart \\
+            --namespace transaction-platform-staging \\
             --set image.tag=${BUILD_VERSION} \\
             --set environment=staging \\
             -f chart/values-staging.yaml
@@ -145,8 +151,8 @@ pipeline {
       when { branch 'main' }
       steps {
         sh """
-          helm upgrade --install aurora-prod ./chart \\
-            --namespace aurora-prod \\
+          helm upgrade --install transaction-platform-prod ./chart \\
+            --namespace transaction-platform-prod \\
             --set image.tag=${BUILD_VERSION} \\
             --set environment=prod \\
             -f chart/values-prod.yaml
@@ -168,16 +174,16 @@ pipeline {
     }
     success {
       slackSend(
-        channel: '#aurora-builds',
+        channel: '#transaction-platform-builds',
         color: 'good',
-        message: ":white_check_mark: Aurora build ${BUILD_VERSION} succeeded on ${BRANCH_NAME}"
+        message: ":white_check_mark: Transaction Platform build ${BUILD_VERSION} succeeded on ${BRANCH_NAME}"
       )
     }
     failure {
       slackSend(
-        channel: '#aurora-builds',
+        channel: '#transaction-platform-builds',
         color: 'danger',
-        message: ":x: Aurora build ${BUILD_VERSION} failed on ${BRANCH_NAME}"
+        message: ":x: Transaction Platform build ${BUILD_VERSION} failed on ${BRANCH_NAME}"
       )
     }
   }
