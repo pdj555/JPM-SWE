@@ -1,38 +1,50 @@
 spring:
   application:
-    name: aurora-ingest
+    name: transaction-platform-processor
   
   # Kafka Configuration
   kafka:
-    bootstrap-servers: ${KAFKA_BOOTSTRAP:localhost:9092}
+    bootstrap-servers: localhost:9092
     producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
       acks: all
-      retries: 3
+      retries: 2147483647
+      max-in-flight-requests-per-connection: 5
+      enable-idempotence: true
+      compression-type: lz4
       batch-size: 32768
       linger-ms: 5
       buffer-memory: 67108864
-      compression-type: lz4
-      properties:
-        enable.idempotence: true
-        max.in.flight.requests.per.connection: 5
+      delivery-timeout-ms: 300000
+      request-timeout-ms: 30000
+    consumer:
+      group-id: transaction-platform-processor
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      max-poll-records: 500
+      fetch-min-bytes: 1024
+      fetch-max-wait: 500ms
+      session-timeout: 30s
 
   # Cassandra Configuration  
   cassandra:
-    contact-points: ${CASS_HOST:localhost}
-    port: ${CASS_PORT:9042}
-    keyspace-name: aurora
-    schema-action: create-if-not-exists
+    contact-points: localhost
+    port: 9042
+    local-datacenter: datacenter1
+    username: cassandra
+    password: cassandra
+    schema-action: CREATE_IF_NOT_EXISTS
     request:
-      timeout: 10s
+      timeout: PT3S
       consistency: LOCAL_QUORUM
-    connection:
-      pool:
-        local:
-          core: 4
-          max: 8
-        remote:
-          core: 2
-          max: 4
+    pool:
+      heartbeat-interval: PT30S
+      idle-timeout: PT120S
+      max-requests-per-connection: 32768
+    keyspace-name: transaction_platform
 
   # Web Configuration
   web:
@@ -43,54 +55,61 @@ spring:
 
 # Server Configuration
 server:
-  port: ${SERVER_PORT:8080}
+  port: 8080
+  shutdown: graceful
   tomcat:
     threads:
-      max: 200
-      min-spare: 10
-    accept-count: 100
-    max-connections: 8192
+      max: 400
+      min-spare: 20
+    accept-count: 200
+    max-connections: 16384
+    connection-timeout: PT20S
+    keep-alive-timeout: PT60S
 
 # Management & Monitoring
 management:
   endpoints:
     web:
       exposure:
-        include: health,info,prometheus,metrics
+        include: health,info,metrics,prometheus
   endpoint:
     health:
       show-details: always
+      probes:
+        enabled: true
+    metrics:
+      enabled: true
   metrics:
     export:
       prometheus:
         enabled: true
-    distribution:
-      percentiles-histogram:
-        "[http.server.requests]": true
-      percentiles:
-        "[http.server.requests]": 0.5, 0.95, 0.99
-  tracing:
-    sampling:
-      probability: 0.1
+    tags:
+      application: transaction-platform-processor
+      version: ${spring.application.version:unknown}
 
 # Logging Configuration
 logging:
   level:
-    com.chase.aurora: INFO
+    root: INFO
+    com.chase.transactionplatform: INFO
     org.springframework.kafka: WARN
-    org.springframework.web: INFO
+    org.apache.kafka: WARN
     com.datastax.oss.driver: WARN
+    org.springframework.web: INFO
   pattern:
-    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level [%X{traceId:-},%X{spanId:-}] %logger{36} - %msg%n"
-    file: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level [%X{traceId:-},%X{spanId:-}] %logger{36} - %msg%n"
+    console: "%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
 
 # Custom Application Properties
-aurora:
-  async:
-    core-pool-size: 10
-    max-pool-size: 50
-    queue-capacity: 1000
-  circuit-breaker:
-    enabled: true
-    failure-threshold: 50
-    timeout: 5s 
+transaction-platform:
+  kafka:
+    topic: transactions.platform
+    partitions: 12
+    replication-factor: 3
+  validation:
+    max-amount: 1000000.00
+    min-amount: 0.01
+    allowed-currencies: USD,EUR,GBP,JPY,CHF,CAD,AUD
+  cache:
+    ttl: PT10M
+    max-size: 10000 

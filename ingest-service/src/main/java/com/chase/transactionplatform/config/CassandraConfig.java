@@ -1,4 +1,4 @@
-package com.chase.aurora.config;
+package com.chase.transactionplatform.config;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
@@ -39,7 +39,7 @@ public class CassandraConfig extends AbstractCassandraConfiguration {
 
     @Override
     public String[] getEntityBasePackages() {
-        return new String[]{"com.chase.aurora.model"};
+        return new String[]{"com.chase.transactionplatform.model"};
     }
 
     @Override

@@ -1,6 +1,6 @@
-package com.chase.aurora.config;
+package com.chase.transactionplatform.config;
 
-import com.chase.aurora.model.Transaction;
+import com.chase.transactionplatform.model.Transaction;
 import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.StringSerializer;

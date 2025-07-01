@@ -5,8 +5,8 @@
                              http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
 
-  <groupId>com.chase.aurora</groupId>
-  <artifactId>aurora-parent</artifactId>
+  <groupId>com.chase.transactionplatform</groupId>
+  <artifactId>transaction-platform-parent</artifactId>
   <version>1.0.0</version>
   <packaging>pom</packaging>
 

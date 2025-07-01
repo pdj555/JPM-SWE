@@ -1,6 +1,6 @@
-package com.chase.aurora.repository;
+package com.chase.transactionplatform.repository;
 
-import com.chase.aurora.model.Transaction;
+import com.chase.transactionplatform.model.Transaction;
 import org.springframework.data.cassandra.repository.CassandraRepository;
 import org.springframework.data.cassandra.repository.Query;
 import org.springframework.data.repository.query.Param;

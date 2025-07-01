@@ -1,7 +1,16 @@
 spring:
-  cassandra:
-    request:
-      consistency: LOCAL_QUORUM
+  data:
+    cassandra:
+      contact-points: ${CASSANDRA_HOSTS:cassandra-cluster.prod.chase.com}
+      port: ${CASSANDRA_PORT:9042}
+      keyspace-name: transaction_platform_prod
+      username: ${CASSANDRA_USERNAME}
+      password: ${CASSANDRA_PASSWORD}
+      ssl:
+        enabled: true
+      request:
+        timeout: PT5S
+        consistency: LOCAL_QUORUM
     connection:
       pool:
         local:
@@ -21,17 +30,35 @@ server:
 
 logging:
   level:
-    com.chase.aurora: INFO
     root: WARN
+    com.chase.transactionplatform: INFO
+    org.springframework.security: WARN
   file:
-    name: /var/log/aurora/aurora-ingest.log
-    max-size: 100MB
-    max-history: 30
+    name: /var/log/transaction-platform/transaction-platform-processor.log
+  logback:
+    rollingpolicy:
+      max-file-size: 100MB
+      max-history: 30
+      total-size-cap: 3GB
 
 management:
-  tracing:
-    sampling:
-      probability: 0.01  # Lower sampling in production
+  endpoints:
+    web:
+      base-path: /actuator
+      exposure:
+        include: health,info,metrics,prometheus
+
+transaction-platform:
+  kafka:
+    topic: transactions.platform.prod
+    partitions: 24
+    replication-factor: 3
+  validation:
+    max-amount: 10000000.00
+    min-amount: 0.01
+  cache:
+    ttl: PT5M
+    max-size: 50000
 
 aurora:
   async:

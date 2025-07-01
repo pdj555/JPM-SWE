@@ -6,14 +6,14 @@
   <modelVersion>4.0.0</modelVersion>
 
   <parent>
-    <groupId>com.chase.aurora</groupId>
-    <artifactId>aurora-parent</artifactId>
+    <groupId>com.chase.transactionplatform</groupId>
+    <artifactId>transaction-platform-parent</artifactId>
     <version>1.0.0</version>
   </parent>
 
   <artifactId>ingest-service</artifactId>
   <name>Ingest Service</name>
-  <description>Aurora Transaction Ingest Service - High-performance transaction processing</description>
+  <description>Transaction Platform Ingest Service - High-performance transaction processing</description>
 
   <dependencies>
     <!-- Spring Boot Starters -->
