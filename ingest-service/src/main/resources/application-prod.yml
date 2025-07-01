@@ -1,0 +1,40 @@
+spring:
+  cassandra:
+    request:
+      consistency: LOCAL_QUORUM
+    connection:
+      pool:
+        local:
+          core: 8
+          max: 16
+        remote:
+          core: 4
+          max: 8
+
+server:
+  tomcat:
+    threads:
+      max: 400
+      min-spare: 20
+    accept-count: 200
+    max-connections: 16384
+
+logging:
+  level:
+    com.chase.aurora: INFO
+    root: WARN
+  file:
+    name: /var/log/aurora/aurora-ingest.log
+    max-size: 100MB
+    max-history: 30
+
+management:
+  tracing:
+    sampling:
+      probability: 0.01  # Lower sampling in production
+
+aurora:
+  async:
+    core-pool-size: 20
+    max-pool-size: 100
+    queue-capacity: 2000 

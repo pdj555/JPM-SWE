@@ -1,0 +1,96 @@
+spring:
+  application:
+    name: aurora-ingest
+  
+  # Kafka Configuration
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP:localhost:9092}
+    producer:
+      acks: all
+      retries: 3
+      batch-size: 32768
+      linger-ms: 5
+      buffer-memory: 67108864
+      compression-type: lz4
+      properties:
+        enable.idempotence: true
+        max.in.flight.requests.per.connection: 5
+
+  # Cassandra Configuration  
+  cassandra:
+    contact-points: ${CASS_HOST:localhost}
+    port: ${CASS_PORT:9042}
+    keyspace-name: aurora
+    schema-action: create-if-not-exists
+    request:
+      timeout: 10s
+      consistency: LOCAL_QUORUM
+    connection:
+      pool:
+        local:
+          core: 4
+          max: 8
+        remote:
+          core: 2
+          max: 4
+
+  # Web Configuration
+  web:
+    resources:
+      add-mappings: false
+  mvc:
+    throw-exception-if-no-handler-found: true
+
+# Server Configuration
+server:
+  port: ${SERVER_PORT:8080}
+  tomcat:
+    threads:
+      max: 200
+      min-spare: 10
+    accept-count: 100
+    max-connections: 8192
+
+# Management & Monitoring
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics
+  endpoint:
+    health:
+      show-details: always
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+    distribution:
+      percentiles-histogram:
+        "[http.server.requests]": true
+      percentiles:
+        "[http.server.requests]": 0.5, 0.95, 0.99
+  tracing:
+    sampling:
+      probability: 0.1
+
+# Logging Configuration
+logging:
+  level:
+    com.chase.aurora: INFO
+    org.springframework.kafka: WARN
+    org.springframework.web: INFO
+    com.datastax.oss.driver: WARN
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level [%X{traceId:-},%X{spanId:-}] %logger{36} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level [%X{traceId:-},%X{spanId:-}] %logger{36} - %msg%n"
+
+# Custom Application Properties
+aurora:
+  async:
+    core-pool-size: 10
+    max-pool-size: 50
+    queue-capacity: 1000
+  circuit-breaker:
+    enabled: true
+    failure-threshold: 50
+    timeout: 5s 
