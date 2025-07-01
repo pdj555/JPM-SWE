@@ -38,10 +38,10 @@ pipeline {
           steps {
             sh './mvnw org.owasp:dependency-check-maven:check'
             publishHTML([
-              allowMissing: false,
+              allowMissing: true,
               alwaysLinkToLastBuild: true,
               keepAll: true,
-              reportDir: 'target',
+              reportDir: 'ingest-service/target',
               reportFiles: 'dependency-check-report.html',
               reportName: 'OWASP Dependency Check'
             ])

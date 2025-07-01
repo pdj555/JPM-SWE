@@ -130,7 +130,7 @@ jobs:
         key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
         restore-keys: ${{ runner.os }}-m2
 
-    - name: Run Snyk to check for vulnerabilities
+    - name: Run Snyk to check for vulnerabilities (optional)
       uses: snyk/actions/maven@master
       continue-on-error: true
       env:
