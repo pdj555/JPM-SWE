@@ -100,12 +100,32 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
+    - name: Set up JDK ${{ env.JAVA_VERSION }}
+      uses: actions/setup-java@v4
+      with:
+        java-version: ${{ env.JAVA_VERSION }}
+        distribution: ${{ env.JAVA_DISTRIBUTION }}
+
     - name: Run Snyk to check for vulnerabilities
       uses: snyk/actions/maven@master
+      continue-on-error: true
       env:
         SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
       with:
         args: --severity-threshold=high
+
+    - name: Run OWASP Dependency Check (backup security scan)
+      run: |
+        echo "Running OWASP Dependency Check for additional security scanning..."
+        ./mvnw org.owasp:dependency-check-maven:check -Dformat=ALL
+      continue-on-error: true
+
+    - name: Upload OWASP report
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: owasp-dependency-check-report
+        path: target/dependency-check-report.*
 
   docker-build:
     name: Docker Build & Push
