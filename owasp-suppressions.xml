@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<suppressions xmlns="https://jeremylong.github.io/DependencyCheck/dependency-suppression.1.3.xsd">
+    
+    <!-- Suppress false positives for Spring Boot framework components -->
+    <suppress>
+        <notes><![CDATA[
+        Spring Boot framework components - these are maintained and patched regularly.
+        Only suppress if versions are current and no actual vulnerabilities exist.
+        ]]></notes>
+        <packageUrl regex="true">^pkg:maven/org\.springframework\.boot/.*$</packageUrl>
+        <cve>CVE-2016-1000027</cve>
+    </suppress>
+    
+    <!-- Suppress false positives for test dependencies -->
+    <suppress>
+        <notes><![CDATA[
+        Test dependencies - not included in production builds
+        ]]></notes>
+        <packageUrl regex="true">^pkg:maven/.*/(junit|mockito|testcontainers).*$</packageUrl>
+        <vulnerabilityName regex="true">.*</vulnerabilityName>
+    </suppress>
+    
+    <!-- Add specific suppressions for known false positives as needed -->
+    <!-- Example:
+    <suppress>
+        <notes><![CDATA[
+        Specific suppression for a known false positive
+        ]]></notes>
+        <gav>group:artifact:version</gav>
+        <cve>CVE-YYYY-NNNN</cve>
+    </suppress>
+    -->
+    
+</suppressions> 

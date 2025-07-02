@@ -1,0 +1,219 @@
+name: Transaction Platform CI/CD Pipeline
+
+on:
+  push:
+    branches: [main, develop, transaction-platform]
+  pull_request:
+    branches: [main, transaction-platform]
+
+env:
+  JAVA_VERSION: '21'
+  JAVA_DISTRIBUTION: 'temurin'
+
+jobs:
+  test:
+    name: Build & Test
+    runs-on: ubuntu-latest
+    
+    services:
+      zookeeper:
+        image: confluentinc/cp-zookeeper:7.4.0
+        env:
+          ZOOKEEPER_CLIENT_PORT: 2181
+          ZOOKEEPER_TICK_TIME: 2000
+        ports:
+          - 2181:2181
+        options: >-
+          --health-cmd "echo stat | nc localhost 2181"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      kafka:
+        image: confluentinc/cp-kafka:7.4.0
+        env:
+          KAFKA_BROKER_ID: 1
+          KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+          KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+          KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
+          KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+          KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
+        ports:
+          - 9092:9092
+        options: >-
+          --health-cmd "kafka-broker-api-versions --bootstrap-server localhost:9092"
+          --health-interval 30s
+          --health-timeout 10s
+          --health-retries 5
+          
+      cassandra:
+        image: cassandra:4.1
+        env:
+          CASSANDRA_CLUSTER_NAME: transaction-platform-test
+          CASSANDRA_DC: datacenter1
+          CASSANDRA_RACK: rack1
+        ports:
+          - 9042:9042
+        options: >-
+          --health-cmd "cqlsh -e 'describe cluster'"
+          --health-interval 30s
+          --health-timeout 10s
+          --health-retries 10
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Set up JDK ${{ env.JAVA_VERSION }}
+      uses: actions/setup-java@v4
+      with:
+        java-version: ${{ env.JAVA_VERSION }}
+        distribution: ${{ env.JAVA_DISTRIBUTION }}
+
+    - name: Cache Maven dependencies
+      uses: actions/cache@v4
+      with:
+        path: ~/.m2
+        key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
+        restore-keys: ${{ runner.os }}-m2
+
+    - name: Wait for services to be ready
+      run: |
+        echo "Waiting for services to be ready..."
+        timeout 180 bash -c 'until nc -z localhost 2181; do echo "Waiting for Zookeeper..."; sleep 5; done'
+        timeout 180 bash -c 'until nc -z localhost 9092; do echo "Waiting for Kafka..."; sleep 5; done'
+        timeout 300 bash -c 'until nc -z localhost 9042; do echo "Waiting for Cassandra..."; sleep 10; done'
+        echo "All services are ready!"
+
+    - name: Run Maven verify
+      run: ./mvnw -B verify -Dspring.profiles.active=test
+      env:
+        KAFKA_BOOTSTRAP: localhost:9092
+        CASS_HOST: localhost
+
+    - name: Generate test report
+      uses: dorny/test-reporter@v1
+      if: success() || failure()
+      with:
+        name: Maven Tests
+        path: 'ingest-service/target/surefire-reports/*.xml'
+        reporter: java-junit
+
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v4
+      if: success() || failure()
+      with:
+        file: ./ingest-service/target/site/jacoco/jacoco.xml
+        flags: unittests
+        name: codecov-umbrella
+        fail_ci_if_error: false
+
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up JDK ${{ env.JAVA_VERSION }}
+      uses: actions/setup-java@v4
+      with:
+        java-version: ${{ env.JAVA_VERSION }}
+        distribution: ${{ env.JAVA_DISTRIBUTION }}
+
+    - name: Cache Maven dependencies
+      uses: actions/cache@v4
+      with:
+        path: ~/.m2
+        key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
+        restore-keys: ${{ runner.os }}-m2
+
+    - name: Run Snyk to check for vulnerabilities (optional)
+      uses: snyk/actions/maven@master
+      continue-on-error: true
+      env:
+        SNYK_TOKEN: ${{ secrets.SNYK_TOKEN || '' }}
+      with:
+        args: --severity-threshold=high
+
+    - name: Run OWASP Dependency Check (backup security scan)
+      run: |
+        echo "Running OWASP Dependency Check for additional security scanning..."
+        cd ingest-service
+        ../mvnw org.owasp:dependency-check-maven:check -Dformat=ALL
+      continue-on-error: true
+
+    - name: Upload OWASP report
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: owasp-dependency-check-report
+        path: |
+          ingest-service/target/dependency-check-report.*
+          target/dependency-check-report.*
+
+  docker-build:
+    name: Docker Build & Push
+    runs-on: ubuntu-latest
+    needs: [test]
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/transaction-platform'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up JDK ${{ env.JAVA_VERSION }}
+      uses: actions/setup-java@v4
+      with:
+        java-version: ${{ env.JAVA_VERSION }}
+        distribution: ${{ env.JAVA_DISTRIBUTION }}
+
+    - name: Build with Maven
+      run: ./mvnw -B clean package -DskipTests
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Login to GitHub Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Extract metadata
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ghcr.io/${{ github.repository }}/transaction-platform-ingest
+        tags: |
+          type=ref,event=branch
+          type=ref,event=pr
+          type=sha
+          type=raw,value=latest,enable={{is_default_branch}}
+
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: ./ingest-service
+        push: true
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: [docker-build]
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/transaction-platform'
+    
+    steps:
+    - name: Deploy to staging
+      run: |
+        echo "Deploying to staging environment..."
+        # In a real scenario, this would use kubectl, helm, or terraform
+        # kubectl apply -f k8s/staging/
+        # helm upgrade --install transaction-platform-staging ./chart -f chart/staging.yaml 
