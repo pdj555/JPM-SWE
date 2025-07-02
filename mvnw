@@ -25,6 +25,10 @@
 set -euf
 [ "${MVNW_VERBOSE-}" != "true" ] || set -x
 
+# Ensure MAVEN_PROJECTBASEDIR is set for compatibility with different
+# environments (e.g., GitHub Actions)
+[ -n "${MAVEN_PROJECTBASEDIR-}" ] || MAVEN_PROJECTBASEDIR="$(cd "$(dirname "$0")" && pwd -P)"
+
 # OS specific support.
 native_path() { printf %s\\n "$1"; }
 case "$(uname)" in

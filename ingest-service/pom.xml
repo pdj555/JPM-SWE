@@ -111,13 +111,11 @@
         </executions>
       </plugin>
       
-      <!-- JaCoCo disabled temporarily due to Java 24 compatibility issues -->
-      <!--
+      <!-- Enable JaCoCo for coverage reporting -->
       <plugin>
         <groupId>org.jacoco</groupId>
         <artifactId>jacoco-maven-plugin</artifactId>
       </plugin>
-      -->
       
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
