@@ -94,9 +94,13 @@ die() {
 while IFS="=" read -r key value; do
   case "${key-}" in
   distributionUrl) distributionUrl="${value-}" ;;
+  wrapperUrl) wrapperUrl="${value-}" ;;
   distributionSha256Sum) distributionSha256Sum="${value-}" ;;
   esac
 done < "${0%/*}/.mvn/wrapper/maven-wrapper.properties" || die "Cannot read ${0%/*}/.mvn/wrapper/maven-wrapper.properties"
+
+# after parsing properties, ensure distributionUrl is set using wrapperUrl if provided
+[ -n "${wrapperUrl-}" ] && distributionUrl="${wrapperUrl}"
 
 [ -n "${distributionUrl-}" ] || die "distributionUrl is not set in ${0%/*}/.mvn/wrapper/maven-wrapper.properties"
 
@@ -110,6 +114,9 @@ esac
 [ -n "${MAVEN_USER_HOME-}" ] || MAVEN_USER_HOME="${M2_HOME}"
 [ -n "${MAVEN_OPTS-}" ] || MAVEN_OPTS=""
 [ -n "${MAVEN_ARGS-}" ] || MAVEN_ARGS=""
+
+# set project base directory if not already provided
+[ -n "${MAVEN_PROJECTBASEDIR-}" ] || MAVEN_PROJECTBASEDIR="$(cd "${0%/*}"; pwd)"
 
 outputFile="${MAVEN_USER_HOME}/wrapper/maven-wrapper.jar"
 if [ -f "$outputFile" ]; then
